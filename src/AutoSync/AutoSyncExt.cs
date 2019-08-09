@@ -10,6 +10,12 @@
     using KeePassLib.Interfaces;
     using KeePassLib.Serialization;
 
+    using System.Windows.Forms;
+    using System.Diagnostics;
+    using System;
+    using System.Threading;
+    using System.Security.Permissions;
+
     public class AutoSyncExt : Plugin
     {
         private readonly IDictionary<string, FileSystemWatcher> watchers = new Dictionary<string, FileSystemWatcher>();
@@ -89,27 +95,32 @@
             }
 
             watcher.EnableRaisingEvents = false;
-
+            
             if (e.ChangeType != WatcherChangeTypes.Changed)
             {
                 return;
             }
-
             this.SyncDatabase(e.FullPath);
-
             watcher.EnableRaisingEvents = true;
         }
 
         private void SyncDatabase(string databaseFilename)
         {
-            var db = new PwDatabase();
+            //MessageBox.Show("Changes in DBFile detected! Please save for resync!", "Changes detected", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 
-            db.Open(IOConnectionInfo.FromPath(databaseFilename), this.host.Database.MasterKey, new NullStatusLogger());
+            try {
+                System.Threading.Thread.Sleep(2000);
+                var db = new PwDatabase();
 
-            this.host.Database.MergeIn(db, PwMergeMethod.Synchronize);
-            this.host.MainWindow.RefreshEntriesList();
+                db.Open(IOConnectionInfo.FromPath(databaseFilename), this.host.Database.MasterKey, new NullStatusLogger());
 
-            db.Close();
+                this.host.Database.MergeIn(db, PwMergeMethod.Synchronize);
+                this.host.MainWindow.RefreshEntriesList();
+
+                db.Close();
+			} catch(Exception e) {
+				MessageBox.Show(e.Message, "Error AutoSync", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+			}
         }
     }
 }
