@@ -8,6 +8,7 @@
 *.pidb
 *.userprefs
 .DS_Store
+.vscode/
 deploy/
 build/
 [Bb]in/

@@ -10,11 +10,8 @@
     using KeePassLib.Interfaces;
     using KeePassLib.Serialization;
 
-    using System.Windows.Forms;
-    using System.Diagnostics;
     using System;
     using System.Threading;
-    using System.Security.Permissions;
 
     public class AutoSyncExt : Plugin
     {
@@ -108,24 +105,20 @@
 
         private void SyncDatabase(string databaseFilename)
         {
+            System.Threading.Thread.Sleep(500+this.randomizer.Next(500, 1000)+this.randomizer.Next(500, 1500));
             try {
-                System.Threading.Thread.Sleep(500+this.randomizer.Next(500, 1000)+this.randomizer.Next(500, 1500));
                 var db = new PwDatabase();
-
                 db.Open(IOConnectionInfo.FromPath(databaseFilename), this.host.Database.MasterKey, new NullStatusLogger());
-
                 this.host.Database.MergeIn(db, PwMergeMethod.Synchronize);
-
                 db.Close();
-			} catch(Exception e) {
-				//MessageBox.Show(e.Message, "KeePass.AutoSync " + databaseFilename, MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            } catch(Exception e) {
                 var notification = new System.Windows.Forms.NotifyIcon()
                 {
                     Visible = true,
                     Icon = System.Drawing.SystemIcons.Information,
                     BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Warning,
-                    BalloonTipTitle = "KeePass.AutoSync ",
-                    BalloonTipText = "Datenbank: " + databaseFilename + Environment.NewLine + e.Message,
+                    BalloonTipTitle = "KeePass.AutoSync",
+                    BalloonTipText = "Database: " + databaseFilename + Environment.NewLine + Environment.NewLine + e.Message,
                 };
                 notification.ShowBalloonTip(5000);
                 Thread.Sleep(10000);
