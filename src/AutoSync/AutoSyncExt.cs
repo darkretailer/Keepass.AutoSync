@@ -22,6 +22,8 @@
 
         private IPluginHost host;
 
+        private Random randomizer = new Random();
+
         public override bool Initialize(IPluginHost host)
         {
             this.host = host;
@@ -106,21 +108,37 @@
 
         private void SyncDatabase(string databaseFilename)
         {
-            //MessageBox.Show("Changes in DBFile detected! Please save for resync!", "Changes detected", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-
             try {
-                System.Threading.Thread.Sleep(2000);
+                System.Threading.Thread.Sleep(500+this.randomizer.Next(500, 1000)+this.randomizer.Next(500, 1500));
                 var db = new PwDatabase();
 
                 db.Open(IOConnectionInfo.FromPath(databaseFilename), this.host.Database.MasterKey, new NullStatusLogger());
 
                 this.host.Database.MergeIn(db, PwMergeMethod.Synchronize);
-                this.host.MainWindow.RefreshEntriesList();
 
                 db.Close();
 			} catch(Exception e) {
-				MessageBox.Show(e.Message, "Error AutoSync", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+				//MessageBox.Show(e.Message, "KeePass.AutoSync " + databaseFilename, MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                var notification = new System.Windows.Forms.NotifyIcon()
+                {
+                    Visible = true,
+                    Icon = System.Drawing.SystemIcons.Information,
+                    BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Warning,
+                    BalloonTipTitle = "KeePass.AutoSync ",
+                    BalloonTipText = "Datenbank: " + databaseFilename + Environment.NewLine + e.Message,
+                };
+                notification.ShowBalloonTip(5000);
+                Thread.Sleep(10000);
+                notification.Dispose();
 			}
+            this.host.MainWindow.RefreshEntriesList();
+        }
+        public override void Terminate()
+        {
+            foreach (var watcher in this.watchers.Values)
+            {
+                watcher.Dispose();
+            }
         }
     }
 }
