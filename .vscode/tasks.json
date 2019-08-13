@@ -6,7 +6,7 @@
         {
             "label": "Build",
             "type": "shell",
-            "command": "& 'C:\\Program Files (x86)\\KeePass Password Safe 2\\KeePass.exe' --plgx-create P:\\Projekte\\KeePass\\AutoSync\\src\\AutoSync; sleep 1; cp -Force src\\AutoSync.plgx 'C:\\Program Files (x86)\\KeePass Password Safe 2\\Plugins\\'",
+            "command": "& 'C:\\Program Files (x86)\\KeePass Password Safe 2\\KeePass.exe' --plgx-create P:\\Projekte\\KeePass\\AutoSync\\src\\AutoSync; sleep 1; cp -Force src\\AutoSync.plgx 'C:\\Program Files (x86)\\KeePass Password Safe 2\\Plugins\\'; mv -Force src\\AutoSync.plgx .",
             "group": {
                 "kind": "build",
                 "isDefault": true
