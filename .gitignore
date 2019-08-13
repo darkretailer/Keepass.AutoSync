@@ -21,3 +21,4 @@ _[Rr]e[Ss]harper.*/
 *.ncrunchproject
 *.ncrunchsolution
 *.dotCover
+.vscode/tasks.json
