@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("AutoSync")]
 [assembly: AssemblyDescription("Automatically monitors the database file and make KeePass syncronise with it if it changes - designed for DropBox/Skydrive hosted databases.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Steven Robbins")]
+[assembly: AssemblyCompany("Steven Robbins; continued by Steven Mey")]
 [assembly: AssemblyProduct("KeePass Plugin")]
 [assembly: AssemblyCopyright("Copyright © Steven Robbins 2012")]
 [assembly: AssemblyTrademark("")]

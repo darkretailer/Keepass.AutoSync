@@ -21,6 +21,8 @@
 
         private Random randomizer = new Random();
 
+        public override string UpdateUrl { get { return "https://raw.githubusercontent.com/darkretailer/Keepass.AutoSync/master/version"; } }
+
         public override bool Initialize(IPluginHost host)
         {
             this.host = host;
