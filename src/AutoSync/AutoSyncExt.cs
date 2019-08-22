@@ -13,23 +13,70 @@
     using System;
     using System.Threading;
 
+    using System.Windows.Forms; // For Debugging
+
     public class AutoSyncExt : Plugin
     {
-        private readonly IDictionary<string, FileSystemWatcher> watchers = new Dictionary<string, FileSystemWatcher>();
-
-        private IPluginHost host;
-
-        private Random randomizer = new Random();
-
         public override string UpdateUrl { get { return "https://raw.githubusercontent.com/darkretailer/Keepass.AutoSync/master/version"; } }
+        private static IPluginHost host;
+
+        class AutoSyncDB
+        {
+            public static Random randomizer = new Random();
+
+            public PwDatabase database;
+            public FileSystemWatcher fileSystemWatcher;
+            
+            public AutoSyncDB(PwDatabase database, AutoSyncExt parent)
+            {
+                this.database = database;
+                var path = Path.GetDirectoryName(database.IOConnectionInfo.Path);
+                var filename = Path.GetFileName(database.IOConnectionInfo.Path);
+                this.fileSystemWatcher = new FileSystemWatcher(path, filename);
+                this.fileSystemWatcher.Changed += parent.MonitorChanged;
+                this.fileSystemWatcher.EnableRaisingEvents = true;
+            }
+            public void Sync()
+            {
+                this.fileSystemWatcher.EnableRaisingEvents = false;
+                System.Threading.Thread.Sleep(500+randomizer.Next(500, 1000)+randomizer.Next(500, 1500));
+                try {
+                    var db = new PwDatabase();
+                    db.Open(this.database.IOConnectionInfo, this.database.MasterKey, new NullStatusLogger());
+                    this.database.MergeIn(db, PwMergeMethod.Synchronize);
+                    db.Close();
+                    AutoSyncExt.host.MainWindow.RefreshEntriesList();
+                } catch(Exception e) {
+                    this.database.Modified = true;
+                    var notification = new System.Windows.Forms.NotifyIcon()
+                    {
+                        Visible = true,
+                        Icon = System.Drawing.SystemIcons.Information,
+                        BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Warning,
+                        BalloonTipTitle = "KeePass.AutoSync",
+                        BalloonTipText = "Database: " + this.database.IOConnectionInfo.Path + Environment.NewLine + Environment.NewLine + e.Message,
+                    };
+                    notification.ShowBalloonTip(5000);
+                    Thread.Sleep(10000);
+                    notification.Dispose();
+                }
+                this.fileSystemWatcher.EnableRaisingEvents = true;
+            }
+
+            public void Dispose()
+            {
+                this.fileSystemWatcher.Dispose();
+            }
+        }
+        private readonly IDictionary<string, AutoSyncDB> autoSyncDBList = new Dictionary<string, AutoSyncDB>();
 
         public override bool Initialize(IPluginHost host)
         {
-            this.host = host;
+            AutoSyncExt.host = host;
 
-            this.host.MainWindow.FileOpened += MainWindowOnFileOpened;
-            this.host.MainWindow.FileClosingPre += MainWindowOnFileClosingPre;
-
+            AutoSyncExt.host.MainWindow.FileOpened += MainWindowOnFileOpened;
+            AutoSyncExt.host.MainWindow.FileClosingPre += MainWindowOnFileClosingPre;
+            
             return true;
         }
 
@@ -40,7 +87,7 @@
                 return;
             }
 
-            this.AddMonitor(fileOpenedEventArgs.Database.IOConnectionInfo.Path);
+            this.AddMonitor(fileOpenedEventArgs.Database);
         }
 
         private void MainWindowOnFileClosingPre(object sender, FileClosingEventArgs fileClosingEventArgs)
@@ -50,40 +97,37 @@
                 return;
             }
 
-            this.RemoveMonitor(fileClosingEventArgs.Database.IOConnectionInfo.Path);
+            this.RemoveMonitor(fileClosingEventArgs.Database);
         }
 
-        private void AddMonitor(string databaseFilename)
+        private void AddMonitor(PwDatabase database)
         {
-            if (watchers.ContainsKey(databaseFilename))
+            if (autoSyncDBList.ContainsKey(database.IOConnectionInfo.Path))
             {
                 return;
             }
 
-            var path = Path.GetDirectoryName(databaseFilename);
-            var filename = Path.GetFileName(databaseFilename);
+            var path = Path.GetDirectoryName(database.IOConnectionInfo.Path);
+            var filename = Path.GetFileName(database.IOConnectionInfo.Path);
 
             if (filename == null || path == null)
             {
                 return;
             }
 
-            var watcher = new FileSystemWatcher(path, filename);
-            watcher.Changed += this.MonitorChanged;
-            watcher.EnableRaisingEvents = true;
-
-            this.watchers.Add(databaseFilename, watcher);
+            var autoSyncDB = new AutoSyncDB(database, this);
+            this.autoSyncDBList.Add(database.IOConnectionInfo.Path, autoSyncDB);
         }
 
-        private void RemoveMonitor(string databaseFilename)
+        private void RemoveMonitor(PwDatabase database)
         {
-            if (!watchers.ContainsKey(databaseFilename))
+            if (!autoSyncDBList.ContainsKey(database.IOConnectionInfo.Path))
             {
                 return;
             }
 
-            this.watchers[databaseFilename].Dispose();
-            this.watchers.Remove(databaseFilename);
+            this.autoSyncDBList[database.IOConnectionInfo.Path].Dispose();
+            this.autoSyncDBList.Remove(database.IOConnectionInfo.Path); 
         }
 
         private void MonitorChanged(object sender, FileSystemEventArgs e)
@@ -94,45 +138,28 @@
             {
                 return;
             }
-
-            watcher.EnableRaisingEvents = false;
             
             if (e.ChangeType != WatcherChangeTypes.Changed)
             {
                 return;
             }
-            this.SyncDatabase(e.FullPath);
-            watcher.EnableRaisingEvents = true;
+
+            try {
+                this.autoSyncDBList[watcher.Path+"\\"+watcher.Filter].Sync();
+            } catch (Exception ex) {
+                MessageBox.Show("132"+ex.Message+" - "+watcher.Path+"\\"+watcher.Filter);
+            }
         }
 
-        private void SyncDatabase(string databaseFilename)
-        {
-            System.Threading.Thread.Sleep(500+this.randomizer.Next(500, 1000)+this.randomizer.Next(500, 1500));
-            try {
-                var db = new PwDatabase();
-                db.Open(IOConnectionInfo.FromPath(databaseFilename), this.host.Database.MasterKey, new NullStatusLogger());
-                this.host.Database.MergeIn(db, PwMergeMethod.Synchronize);
-                db.Close();
-            } catch(Exception e) {
-                var notification = new System.Windows.Forms.NotifyIcon()
-                {
-                    Visible = true,
-                    Icon = System.Drawing.SystemIcons.Information,
-                    BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Warning,
-                    BalloonTipTitle = "KeePass.AutoSync",
-                    BalloonTipText = "Database: " + databaseFilename + Environment.NewLine + Environment.NewLine + e.Message,
-                };
-                notification.ShowBalloonTip(5000);
-                Thread.Sleep(10000);
-                notification.Dispose();
-			}
-            this.host.MainWindow.RefreshEntriesList();
-        }
         public override void Terminate()
         {
-            foreach (var watcher in this.watchers.Values)
+            foreach (var autoSyncDB in this.autoSyncDBList.Values)
             {
-                watcher.Dispose();
+                try {
+                    autoSyncDB.Dispose();
+                } catch(Exception e) {
+                    MessageBox.Show(e.Message);
+                }
             }
         }
     }
